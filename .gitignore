@@ -1,0 +1,27 @@
+# Secrets — never commit these
+.env
+*.env
+!.env.example
+!worlds/*.env.example
+!worlds/NEW_WORLD_TEMPLATE.env
+
+# Logs — local only
+logs/*.txt
+logs/*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Audio cache (generated TTS files)
+*.mp3
+*.wav
+audio_cache/
