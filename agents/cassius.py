@@ -3,12 +3,26 @@ import time
 import psutil
 from core.threat import Threat, Severity
 
+# Exact or specific substrings only — no short ambiguous tokens
 KNOWN_HERETICS = [
-    "cryptominer", "xmrig", "minerd", "coinhive",
-    "nc", "netcat", "ncat", "socat",
-    "metasploit", "msfconsole", "meterpreter",
+    "xmrig", "minerd", "cryptominer", "coinhive",
+    "netcat", "ncat", "socat",
+    "msfconsole", "meterpreter", "metasploit",
     "backdoor", "rootkit", "keylogger",
+    "mimikatz", "cobalt strike", "cobaltstrike",
 ]
+
+# Legitimate macOS system processes — never flag these
+MACOS_ALLOWLIST = {
+    "launchd", "launchservicesd", "notificationcenter", "usernotificationcenter",
+    "siriservice", "sirincservice", "siriinferenced", "findersyncextension",
+    "audioclocksyncd", "cmfsyncagent", "imklaunchagent", "avconferenced",
+    "hostinferencepro", "intelligencecontextd", "intelligenceplatformd",
+    "intelligenceplatformcomputeservice", "syncdefaultsd", "safaribuookmarksyncagent",
+    "safaribookmarksyncagent", "mapssyncd", "generativeexperiencesd", "mdsync",
+    "distnoted", "cfnetwork", "nsurlsessiond", "accountsd", "cloudd",
+    "bird", "rapportd", "symptomsd", "triald", "dprivacyd",
+}
 
 
 class Cassius:
@@ -27,6 +41,8 @@ class Cassius:
             try:
                 for proc in psutil.process_iter(["pid", "name", "exe"]):
                     name = (proc.info["name"] or "").lower()
+                    if name in MACOS_ALLOWLIST:
+                        continue
                     for heretic in KNOWN_HERETICS:
                         if heretic in name and proc.info["pid"] not in self.seen:
                             self.seen.add(proc.info["pid"])

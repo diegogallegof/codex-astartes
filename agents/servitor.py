@@ -2,6 +2,10 @@ import os
 import time
 from datetime import datetime, timedelta
 from core.threat import Threat, Severity
+from core.voice import speak
+
+# System files that are allowed to sit in root — never flag these
+DOWNLOADS_IGNORED = {".ds_store", ".localized", "desktop.ini"}
 
 
 class Servitor:
@@ -15,6 +19,22 @@ class Servitor:
         self.max_age_days = int(os.getenv("DOWNLOADS_MAX_AGE_DAYS", 30))
         self.max_files = int(os.getenv("DOWNLOADS_MAX_FILES", 100))
         self.downloads_path = os.path.expanduser("~/Downloads")
+        self._reported_loose = set()
+
+    def _check_loose_files(self):
+        """Flag any files sitting directly in Downloads root — every file must be in a folder."""
+        for entry in os.listdir(self.downloads_path):
+            if entry.lower() in DOWNLOADS_IGNORED:
+                continue
+            full_path = os.path.join(self.downloads_path, entry)
+            if os.path.isfile(full_path) and full_path not in self._reported_loose:
+                self._reported_loose.add(full_path)
+                self.calgar.report(Threat(
+                    agent=self.NAME,
+                    description=f"Loose file detected in Downloads root: '{entry}' — must be moved to a proper folder",
+                    severity=Severity.LOW,
+                    metadata={"path": full_path, "file": entry},
+                ))
 
     def patrol(self):
         print(f"[{self.NAME}] Downloads guardian active.")
@@ -31,6 +51,8 @@ class Servitor:
                         metadata={"count": file_count},
                     ))
 
+                self._check_loose_files()
+
                 cutoff = datetime.now() - timedelta(days=self.max_age_days)
                 for entry in entries:
                     full_path = os.path.join(self.downloads_path, entry)
@@ -45,6 +67,8 @@ class Servitor:
                             ))
                     except Exception:
                         pass
+                speak("Servitor patrol complete. Downloads sector secured.")
+                print(f"[{self.NAME}] Patrol complete. Sector secured.")
             except Exception as e:
                 print(f"[{self.NAME}] Error: {e}")
             time.sleep(self.interval)
