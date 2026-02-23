@@ -1,6 +1,7 @@
 import threading
 from core.threat import Threat
 from core.voice import speak
+from core.logger import log_threat, log_event
 
 
 class Calgar:
@@ -15,10 +16,12 @@ class Calgar:
 
     def report(self, threat: Threat):
         print(f"[CALGAR] Threat received: {threat}")
+        log_threat(threat)
         speak(threat)
 
     def deploy(self):
         print("[CALGAR] All units — deploy!")
+        log_event("Chapter deployed — all agents on station.")
         for agent in self.agents:
             t = threading.Thread(target=agent.patrol, daemon=True)
             t.start()
@@ -30,3 +33,4 @@ class Calgar:
                 t.join()
         except KeyboardInterrupt:
             print("\n[CALGAR] Chapter standing down. For His Glory.")
+            log_event("Chapter standing down.")
