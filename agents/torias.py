@@ -3,6 +3,11 @@ import time
 import psutil
 from core.threat import Threat, Severity
 
+# Trusted system processes — never flag connections from these
+TRUSTED_PROCESSES = {
+    "symptomsd",        # Apple diagnostics and health telemetry daemon
+}
+
 
 class Torias:
     """Network watcher — monitors suspicious connections and ports."""
@@ -17,6 +22,13 @@ class Torias:
         ]
         self.trusted_ips = os.getenv("TRUSTED_IPS", "127.0.0.1,192.168.1.1").split(",")
 
+    def _process_name(self, pid):
+        """Resolve PID to process name safely."""
+        try:
+            return psutil.Process(pid).name().lower() if pid else None
+        except Exception:
+            return None
+
     def patrol(self):
         print(f"[{self.NAME}] Network watch active.")
         while True:
@@ -27,11 +39,15 @@ class Torias:
                         port = conn.raddr.port
                         ip = conn.raddr.ip
                         if port in self.suspicious_ports and ip not in self.trusted_ips:
+                            proc_name = self._process_name(conn.pid)
+                            if proc_name in TRUSTED_PROCESSES:
+                                continue
                             self.calgar.report(Threat(
                                 agent=self.NAME,
-                                description=f"Suspicious connection to {ip}:{port}",
+                                description=f"Suspicious connection to {ip}:{port}"
+                                            + (f" by {proc_name}" if proc_name else ""),
                                 severity=Severity.HIGH,
-                                metadata={"ip": ip, "port": port, "status": conn.status},
+                                metadata={"ip": ip, "port": port, "status": conn.status, "process": proc_name},
                             ))
             except Exception as e:
                 print(f"[{self.NAME}] Error: {e}")
