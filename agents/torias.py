@@ -1,6 +1,7 @@
 import os
 import time
 import psutil
+from psutil import AccessDenied
 from core.threat import Threat, Severity
 
 # Trusted system processes — never flag connections from these
@@ -34,21 +35,29 @@ class Torias:
         while True:
             try:
                 connections = psutil.net_connections(kind="inet")
-                for conn in connections:
-                    if conn.raddr:
-                        port = conn.raddr.port
-                        ip = conn.raddr.ip
-                        if port in self.suspicious_ports and ip not in self.trusted_ips:
-                            proc_name = self._process_name(conn.pid)
-                            if proc_name in TRUSTED_PROCESSES:
-                                continue
-                            self.calgar.report(Threat(
-                                agent=self.NAME,
-                                description=f"Suspicious connection to {ip}:{port}"
-                                            + (f" by {proc_name}" if proc_name else ""),
-                                severity=Severity.HIGH,
-                                metadata={"ip": ip, "port": port, "status": conn.status, "process": proc_name},
-                            ))
+            except AccessDenied:
+                connections = []
             except Exception as e:
                 print(f"[{self.NAME}] Error: {e}")
+                connections = []
+
+            for conn in connections:
+                try:
+                    if not conn.raddr:
+                        continue
+                    port = conn.raddr.port
+                    ip = conn.raddr.ip
+                    if port in self.suspicious_ports and ip not in self.trusted_ips:
+                        proc_name = self._process_name(conn.pid)
+                        if proc_name in TRUSTED_PROCESSES:
+                            continue
+                        self.calgar.report(Threat(
+                            agent=self.NAME,
+                            description=f"Suspicious connection to {ip}:{port}"
+                                        + (f" by {proc_name}" if proc_name else ""),
+                            severity=Severity.HIGH,
+                            metadata={"ip": ip, "port": port, "status": conn.status, "process": proc_name},
+                        ))
+                except AccessDenied:
+                    pass
             time.sleep(self.interval)
