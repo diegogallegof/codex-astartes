@@ -30,7 +30,7 @@ EXT_TO_FOLDER = {
     # Web
     "html": "Web", "htm": "Web",
     # Dev
-    "sqlite": "Dev", "ics": "Dev", "db": "Dev",
+    "sqlite": "Dev", "ics": "Dev", "db": "Dev", "md": "Dev",
 }
 
 
