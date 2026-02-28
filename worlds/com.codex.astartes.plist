@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.codex.astartes</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/dondiego/Projects/codex-astartes/.venv/bin/python</string>
+        <string>/Users/dondiego/Projects/codex-astartes/main.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/dondiego/Projects/codex-astartes</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/codex-astartes.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/codex-astartes.err</string>
+</dict>
+</plist>
