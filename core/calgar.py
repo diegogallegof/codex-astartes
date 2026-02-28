@@ -10,14 +10,23 @@ class Calgar:
     def __init__(self):
         self.agents = []
         self._threads = []
+        self._voice_lock = threading.Lock()
 
     def enlist(self, agent):
         self.agents.append(agent)
 
+    def _speak_safe(self, threat):
+        """Speak a threat aloud — skipped if voice is already busy."""
+        if self._voice_lock.acquire(blocking=False):
+            try:
+                speak(threat)
+            finally:
+                self._voice_lock.release()
+
     def report(self, threat: Threat):
         print(f"[CALGAR] Threat received: {threat}")
         log_threat(threat)
-        speak(threat)
+        threading.Thread(target=self._speak_safe, args=(threat,), daemon=True).start()
 
     def deploy(self):
         print("[CALGAR] All units — deploy!")
