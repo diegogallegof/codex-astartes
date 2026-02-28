@@ -7,6 +7,7 @@ from agents.cassius import Cassius
 from agents.pythol import Pythol
 from agents.tigurius import Tigurius
 from agents.servitor import Servitor
+from agents.sicarius import Sicarius
 
 
 def main():
@@ -24,6 +25,7 @@ def main():
     calgar.enlist(Pythol(calgar))
     calgar.enlist(Tigurius(calgar))
     calgar.enlist(Servitor(calgar))
+    calgar.enlist(Sicarius(calgar))
 
     calgar.deploy()
     calgar.stand_by()
