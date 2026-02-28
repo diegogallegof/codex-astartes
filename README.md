@@ -2,7 +2,7 @@
 
 > *"Our struggle is not against flesh and blood, but against the rulers, against the authorities, against the powers of this dark world."* — Ephesians 6:12
 
-**Codex Astartes** is a personal, always-on defensive security system for macOS — built as a multi-agent Python framework, voiced by ElevenLabs TTS, and themed around the Warhammer 40,000 Ultramarines Chapter.
+**Codex Astartes** is a personal, always-on defensive security system for macOS — built as a multi-agent Python framework, voiced by a custom cloned voice engine, and themed around the Warhammer 40,000 Ultramarines Chapter.
 
 Every agent runs as a daemon thread, patrols a specific threat surface, and reports through a central orchestrator. When a threat is detected, the system speaks it aloud and writes it to a persistent log.
 
@@ -31,7 +31,8 @@ main.py
 ├── core/
 │   ├── calgar.py       ← Orchestrator: enlists agents, deploys threads, routes threats
 │   ├── threat.py       ← Threat dataclass: agent, description, severity, timestamp, metadata
-│   ├── voice.py        ← ElevenLabs TTS engine: speaks every threat aloud
+│   ├── voice.py        ← Three-tier voice engine: ElevenLabs → XTTS clone → macOS say
+│   ├── tts_engine.py   ← Standalone XTTS v2 runner (Python 3.11, called as subprocess)
 │   └── logger.py       ← File logger: writes all threats to logs/chapter.log
 │
 ├── agents/
@@ -45,7 +46,8 @@ main.py
 │
 ├── worlds/
 │   ├── NEW_WORLD_TEMPLATE.env          ← Template for new machines
-│   └── com.codex.astartes.plist        ← launchd auto-start agent (macOS)
+│   ├── com.codex.astartes.plist        ← launchd auto-start agent (macOS)
+│   └── voice_reference.mp3             ← Voice clone reference audio (gitignored, machine-specific)
 │
 ├── logs/
 │   └── chapter.log     ← Local threat log (gitignored)
@@ -73,13 +75,13 @@ calgar.report(Threat)
 ## Prerequisites
 
 - macOS (tested on MacBook Pro M3, macOS Sequoia)
-- Python 3.9+
+- Python 3.9+ (Chapter core) + Python 3.11 (XTTS voice engine)
 - Homebrew
 - `ffmpeg` (for audio playback)
-- An ElevenLabs account (free tier works)
+- An ElevenLabs account (optional — system works fully offline without it)
 
 ```bash
-brew install ffmpeg
+brew install ffmpeg python@3.11
 ```
 
 ---
@@ -118,7 +120,22 @@ cp worlds/NEW_WORLD_TEMPLATE.env .env
 
 Edit `.env` with your values (see **Configuration** section below). This file is gitignored — it will never be committed.
 
-### 5. Boot the Chapter
+### 5. Set up the local voice engine (optional but recommended)
+
+The Chapter can clone any voice locally using XTTS v2 — no API key or quota needed.
+
+```bash
+# Create the XTTS environment
+python3.11 -m venv ~/.codex_astartes/.xtts_venv
+~/.codex_astartes/.xtts_venv/bin/pip install TTS torch==2.5.1 torchaudio==2.5.1 transformers==4.44.2
+
+# Place your voice reference audio (6-30 seconds of your target voice)
+cp /path/to/your/voice_sample.mp3 worlds/voice_reference.mp3
+```
+
+The first time `tts_engine.py` runs it downloads the XTTS v2 model (~1.87GB) to `~/.codex_astartes/xtts_models/`.
+
+### 6. Boot the Chapter
 
 ```bash
 python main.py
@@ -131,7 +148,7 @@ python main.py > /tmp/codex-astartes.log 2>&1 &
 disown
 ```
 
-### 6. Auto-start at login (macOS)
+### 7. Auto-start at login (macOS)
 
 Install the provided launchd plist so the Chapter deploys automatically every time the machine starts:
 
@@ -282,17 +299,49 @@ Polls `psutil.disk_partitions()` every 5 seconds. Any new mount point under `/Vo
 
 ---
 
-## Voice Engine (`core/voice.py`)
+## Voice Engine (`core/voice.py` + `core/tts_engine.py`)
 
-Powered by ElevenLabs TTS. Every threat passed to `calgar.report()` is spoken aloud using your configured voice.
+The Chapter never goes silent. Voice alerts use a three-tier priority system:
 
-- Model: `eleven_turbo_v2_5` (compatible with free tier)
-- Audio playback via `ffplay` (part of ffmpeg)
-- Falls back to `print()` if no API key is configured or quota is exceeded
+```
+1. ElevenLabs API   — fast (~4s), premium quality, requires quota
+       ↓ (fails or quota exceeded)
+2. XTTS v2 clone    — fully offline (~10s), cloned from voice_reference.mp3
+       ↓ (fails or not configured)
+3. macOS say        — instant, built-in robot voice, always available
+```
 
-**Setup:**
-1. Create an account at [elevenlabs.io](https://elevenlabs.io)
-2. Copy your API key and a Voice ID into `.env`
+### Tier 1 — ElevenLabs
+
+- Model: `eleven_turbo_v2_5` (free tier compatible)
+- Set `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID` in `.env`
+- Automatically used when quota is available; skipped when exhausted
+
+### Tier 2 — XTTS v2 Local Voice Clone
+
+A fully offline neural TTS engine using [Coqui XTTS v2](https://github.com/coqui-ai/TTS). Clones any voice from a short reference audio sample — no API, no quota, no third party.
+
+**Voice profile (C1 — Calgar):**
+- `temperature=0.6` — controlled, deliberate cadence
+- `repetition_penalty=11.0` — clean, no wandering
+- Pitch shifted -3 semitones via ffmpeg for deep resonance
+- Reference: `worlds/voice_reference.mp3` (gitignored, machine-specific)
+
+**Infrastructure:**
+- Python 3.11 venv at `~/.codex_astartes/.xtts_venv/`
+- Model (~1.87GB) at `~/.codex_astartes/xtts_models/`
+- Called as a subprocess by `voice.py` to avoid dependency conflicts with the main Chapter venv
+
+**To set up:**
+```bash
+python3.11 -m venv ~/.codex_astartes/.xtts_venv
+~/.codex_astartes/.xtts_venv/bin/pip install TTS torch==2.5.1 torchaudio==2.5.1 transformers==4.44.2
+cp /path/to/your_voice_sample.mp3 worlds/voice_reference.mp3
+```
+
+### Tier 3 — macOS `say`
+
+Built-in macOS TTS. No setup required. Used only when both ElevenLabs and XTTS are unavailable.
 
 ---
 
@@ -350,10 +399,17 @@ alias reload="source ~/.zshrc"
 ## Troubleshooting
 
 ### Voice not working
-- Check ElevenLabs quota — free tier has a monthly character limit
-- Confirm `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID` are set in `.env`
+- ElevenLabs quota exhausted → Chapter auto-falls back to XTTS local clone (~10s delay)
+- XTTS not set up → Chapter falls back to macOS `say` (instant)
 - Confirm `ffmpeg` is installed: `which ffplay`
-- Voice alerts have a ~5 second delay when fired through Tigurius (batch window)
+- Tigurius voice alerts have a ~5 second delay due to the batch window
+- To check ElevenLabs quota: [elevenlabs.io/app/subscription](https://elevenlabs.io/app/subscription)
+
+### XTTS voice not working
+- Confirm `~/.codex_astartes/.xtts_venv/bin/python3.11` exists
+- Confirm `worlds/voice_reference.mp3` exists (gitignored — must be placed manually)
+- Confirm model is downloaded: `ls ~/.codex_astartes/xtts_models/tts/`
+- First run downloads ~1.87GB — requires internet connection
 
 ### Servitor: Access denied to Downloads
 - Grant Full Disk Access to the Python binary in `System Settings → Privacy & Security → Full Disk Access`
