@@ -43,6 +43,7 @@ def speak(message):
             _say(text)
         return
 
+    played = False
     try:
         from elevenlabs.client import ElevenLabs
         from elevenlabs.play import play
@@ -54,6 +55,10 @@ def speak(message):
             model_id="eleven_turbo_v2_5",
         )
         play(audio)
+        played = True
     except Exception:
+        pass
+
+    if not played:
         if not _xtts(text):
             _say(text)
