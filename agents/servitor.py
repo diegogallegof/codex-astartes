@@ -149,6 +149,8 @@ class Servitor:
 
                 cutoff = datetime.now() - timedelta(days=self.max_age_days)
                 for entry in entries:
+                    if entry.lower() in DOWNLOADS_IGNORED:
+                        continue
                     full_path = os.path.join(self.downloads_path, entry)
                     try:
                         mtime = datetime.fromtimestamp(os.path.getmtime(full_path))
