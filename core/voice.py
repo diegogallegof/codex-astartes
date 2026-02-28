@@ -1,18 +1,24 @@
 import os
+import subprocess
 from dotenv import load_dotenv
 from core.threat import Threat
 
 load_dotenv()
 
 
+def _say(text):
+    """Fallback — macOS built-in TTS via the say command."""
+    subprocess.run(["say", text], check=False)
+
+
 def speak(message):
-    """ElevenLabs TTS engine — voice of the Chapter. Accepts a Threat or a plain string."""
+    """ElevenLabs TTS engine — voice of the Chapter. Falls back to macOS say on failure."""
     text = str(message)
     api_key = os.getenv("ELEVENLABS_API_KEY")
     voice_id = os.getenv("ELEVENLABS_VOICE_ID")
 
     if not api_key or api_key == "your_key_here":
-        print(f"[VOICE] {text}")
+        _say(text)
         return
 
     try:
@@ -26,5 +32,5 @@ def speak(message):
             model_id="eleven_turbo_v2_5",
         )
         play(audio)
-    except Exception as e:
-        print(f"[VOICE ERROR] {e} — falling back to print: {text}")
+    except Exception:
+        _say(text)
