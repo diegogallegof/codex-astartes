@@ -25,3 +25,6 @@ Thumbs.db
 *.mp3
 *.wav
 audio_cache/
+
+# Voice reference — personal, machine-specific
+worlds/voice_reference.mp3
