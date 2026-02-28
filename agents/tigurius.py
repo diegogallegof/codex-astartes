@@ -7,6 +7,9 @@ from core.threat import Threat, Severity
 
 BATCH_WINDOW_SECONDS = 5
 
+# Paths containing these segments are noisy internals — never alert on them
+IGNORED_SEGMENTS = {"/.git/", "/__pycache__/", "/.venv/"}
+
 
 class TiguriusHandler(FileSystemEventHandler):
     def __init__(self, calgar):
@@ -63,22 +66,26 @@ class TiguriusHandler(FileSystemEventHandler):
                 metadata={"paths": modified, "count": count},
             ))
 
+    def _ignored(self, path):
+        return any(seg in path for seg in IGNORED_SEGMENTS)
+
     def on_modified(self, event):
-        if not event.is_directory:
+        if not event.is_directory and not self._ignored(event.src_path):
             with self._lock:
                 self._modified.append(event.src_path)
             self._schedule_flush()
 
     def on_created(self, event):
-        if not event.is_directory:
+        if not event.is_directory and not self._ignored(event.src_path):
             with self._lock:
                 self._created.append(event.src_path)
             self._schedule_flush()
 
     def on_deleted(self, event):
-        with self._lock:
-            self._deleted.append(event.src_path)
-        self._schedule_flush()
+        if not self._ignored(event.src_path):
+            with self._lock:
+                self._deleted.append(event.src_path)
+            self._schedule_flush()
 
 
 class Tigurius:
