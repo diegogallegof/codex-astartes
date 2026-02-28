@@ -22,6 +22,7 @@ MACOS_ALLOWLIST = {
     "safaribookmarksyncagent", "mapssyncd", "generativeexperiencesd", "mdsync",
     "distnoted", "cfnetwork", "nsurlsessiond", "accountsd", "cloudd",
     "bird", "rapportd", "symptomsd", "triald", "dprivacyd",
+    "mobileassetd",
 }
 
 
