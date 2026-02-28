@@ -131,6 +131,11 @@ class Servitor:
         while True:
             try:
                 entries = os.listdir(self.downloads_path)
+            except PermissionError:
+                print(f"[{self.NAME}] Access denied to Downloads — grant Full Disk Access to Python in System Settings → Privacy & Security.")
+                time.sleep(self.interval)
+                continue
+            try:
                 file_count = len(entries)
 
                 if file_count > self.max_files:
